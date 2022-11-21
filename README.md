@@ -6,8 +6,9 @@
 
 `elm-2d-camera` provides a camera for projecting, panning and zooming 2d drawings.
 
-The camera can be thought of as looking down from above onto a drawing on the 2d xy-plane at z=0. The camera has a height above this plane and always keeps the 
-plane in perfect focus. As the cameras height changes, so does its degree of zoom.
+The camera can be thought of as looking down from above onto a drawing on the 2d XY-plane at
+Z = 0. The camera has a height above this plane and always keeps the plane in perfect focus. As 
+the cameras height changes, so does its degree of zoom.
 
 Alternatively you can think of the camera as being at a fixed z-height, but with a zoom lens.
 
@@ -17,7 +18,8 @@ scene units map onto how many projection units. Typically projection units are `
 on the screen. The documentation in the code refers to the projection space as 'screen 
 space'.
 
-The basic functions of the camera are to: Map between the scene space and screen space, for projecting a drawing onto the screen. And to map the screen space onto the scene space for projecting user touch and mouse gestures onto an interactive drawing.
+The basic functions of the camera are to: Map between the scene space and screen
+space in orrder to project a drawing onto the screen; to map the screen space onto the scene space to project user touch and mouse gestures onto an interactive drawing.
 
 There are functions to zoom the camera whilst keeping a screen space point in a fixed position. This is typically used for centering zooms around a pinch or a mouse wheel gesture in a specific area of the screen.
 

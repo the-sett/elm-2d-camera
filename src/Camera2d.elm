@@ -15,7 +15,7 @@ module Camera2d exposing
 The camera is defined by an origin point within the scene which is at the
 center of the camera, and a zoom ratio mapping scene units onto screen units.
 
-The screen is defined by a rectangle defined in screen space.
+The screen is defined by a bounding box defined in screen space.
 
 The camera and screen together form a mapping from scene units and coordinates
 onto screen units and coordinates. Functions are provided to map points in both
@@ -89,9 +89,9 @@ type Camera2d units screenUnits coordinates
 (X, Y, 1 / Zoom). Linear motion of the camera in ZoomSpace maps to linear motion
 of the camera in the 3d space above the drawing.
 
-The camera can be thought of as existing at a Z-height above a drawing on the
-XY-plane at Z = 0, with the camera having a fixed field of view and looking
-straight down at the drawing, and always remaining in perfect focus.
+The camera can be thought of as looking down from above onto a drawing on the 2d
+XY-plane at Z = 0. The camera has a height above this plane and always keeps the
+plane in perfect focus. As the cameras height changes, so does its degree of zoom.
 
 ZoomSpace is linear with respect to this 3d space above the drawing. Linear
 motion of the camera in ZoomSpace will produce linear motion of the camera
