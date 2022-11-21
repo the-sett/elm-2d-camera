@@ -1,12 +1,12 @@
 module Camera2d exposing
     ( Camera2d
+    , ZoomSpace
     , zoomedAt, fromZoomSpace
     , origin, zoom
     , setOrigin, setZoom, setZoomAtScreenPoint
     , translateBy, translateByScreenVector
     , pointToScene, pointToScreen
     , svgViewBox
-    , ZoomSpace
     , toZoomSpace
     )
 
@@ -29,6 +29,7 @@ A Camera2d is similar to an `ianmackenzie/elm-geometry` `Frame2d` but with the
 addition of the zoom ratio.
 
 @docs Camera2d
+@docs ZoomSpace
 
 
 # Constructors
@@ -50,12 +51,15 @@ addition of the zoom ratio.
 # Mappings between scene and screen space
 
 @docs pointToScene, pointToScreen
+
+
+# SVG helpers.
+
 @docs svgViewBox
 
 
 # Animation
 
-@docs ZoomSpace
 @docs toZoomSpace
 
 -}
@@ -85,12 +89,14 @@ type Camera2d units screenUnits coordinates
 (X, Y, 1 / Zoom). Linear motion of the camera in ZoomSpace maps to linear motion
 of the camera in the 3d space above the drawing.
 
-The camera can be thought of as existing at a Z height above a drawing on the (X, Y)
-plane at Z = 0, with the camera having a fixed field of view and looking straight
-down at the drawing, and always remaining in perfect focus. ZoomSpace is linear with
-respect to this 3d space above the drawing. Linear motion of the camera in ZoomSpace
-will produice linear motion of the camera as imagined this way, and is useful for
-producing predictable animations of the camera position and zoom level.
+The camera can be thought of as existing at a Z-height above a drawing on the
+XY-plane at Z = 0, with the camera having a fixed field of view and looking
+straight down at the drawing, and always remaining in perfect focus.
+
+ZoomSpace is linear with respect to this 3d space above the drawing. Linear
+motion of the camera in ZoomSpace will produce linear motion of the camera
+as imagined this way, and is useful for getting predictable animations of the
+camera position and zoom level.
 
 -}
 type ZoomSpace screenUnits coordinates
@@ -110,7 +116,7 @@ zoomedAt originPoint zoomLevel =
         |> Camera2d
 
 
-{-| Maps ZoomSpace to camera coords.
+{-| Maps [ZoomSpace](#ZoomSpace) to camera coords.
 -}
 fromZoomSpace : Point3d units (ZoomSpace screenUnits coordinates) -> Camera2d units screenUnits coordinates
 fromZoomSpace zoomSpacePoint =
@@ -126,6 +132,11 @@ fromZoomSpace zoomSpacePoint =
 
 
 {-| Maps the camera coords to ZoomSpace.
+
+This is useful in conjunction with [fromZoomSpace](#fromZoomSpace) when animating the
+camera. See [ZoomSpace](#ZoomSpace) for an explanation of the geometry of ZoomSpace
+and how it simplifies the camera motion.
+
 -}
 toZoomSpace : Camera2d units screenUnits coordinates -> Point3d units (ZoomSpace screenUnits coordinates)
 toZoomSpace (Camera2d { sceneFrame, zoomLevel }) =
