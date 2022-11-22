@@ -287,14 +287,15 @@ the drawing itself.
 -}
 pointToScreen :
     Camera2d sceneUnits screenUnits sceneCoordinates
-    -> Rectangle2d screenUnits screenCoordinates
+    -> BoundingBox2d screenUnits screenCoordinates
     -> Point2d sceneUnits sceneCoordinates
     -> Point2d screenUnits screenCoordinates
 pointToScreen (Camera2d { sceneFrame, zoomLevel }) screen point =
     let
         screenFrame : Frame2d screenUnits screenCoordinates defines
         screenFrame =
-            Rectangle2d.axes screen
+            BoundingBox2d.centerPoint screen
+                |> Frame2d.atPoint
 
         ( transX, transY ) =
             Point2d.coordinatesIn sceneFrame point
