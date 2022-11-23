@@ -6,7 +6,7 @@ module Camera2d exposing
     , setOrigin, setZoom, setZoomAtScreenPoint
     , translateBy, translateByScreenVector
     , pointToScene, pointToScreen
-    , svgViewBox
+    , svgViewBox, svgViewBoxWithFocus
     , toZoomSpace
     )
 
@@ -55,7 +55,7 @@ addition of the zoom ratio.
 
 # SVG helpers.
 
-@docs svgViewBox
+@docs svgViewBox, svgViewBoxWithFocus
 
 
 # Animation
@@ -258,17 +258,17 @@ setZoomAtScreenPoint :
     -> BoundingBox2d screenUnits screenCoordinates
     -> Camera2d units screenUnits coordinates
     -> Camera2d units screenUnits coordinates
-setZoomAtScreenPoint zoomLevel screenPoint screen (Camera2d camera) =
+setZoomAtScreenPoint zoomLevel screenPoint frame (Camera2d camera) =
     let
         zoomedCamera =
             { camera | zoomLevel = zoomLevel }
                 |> Camera2d
 
         beforeZoomPoint =
-            pointToScene (Camera2d camera) screen screenPoint
+            pointToScene (Camera2d camera) frame screenPoint
 
         afterZoomPoint =
-            pointToScene zoomedCamera screen screenPoint
+            pointToScene zoomedCamera frame screenPoint
 
         vector =
             -- A vector that shifts the screen point back to its original location
@@ -290,11 +290,11 @@ pointToScreen :
     -> BoundingBox2d screenUnits screenCoordinates
     -> Point2d sceneUnits sceneCoordinates
     -> Point2d screenUnits screenCoordinates
-pointToScreen (Camera2d { sceneFrame, zoomLevel }) screen point =
+pointToScreen (Camera2d { sceneFrame, zoomLevel }) frame point =
     let
         screenFrame : Frame2d screenUnits screenCoordinates defines
         screenFrame =
-            BoundingBox2d.centerPoint screen
+            BoundingBox2d.centerPoint frame
                 |> Frame2d.atPoint
 
         ( transX, transY ) =
@@ -316,11 +316,11 @@ pointToScene :
     -> BoundingBox2d screenUnits screenCoordinates
     -> Point2d screenUnits screenCoordinates
     -> Point2d sceneUnits sceneCoordinates
-pointToScene (Camera2d { sceneFrame, zoomLevel }) screen point =
+pointToScene (Camera2d { sceneFrame, zoomLevel }) frame point =
     let
         screenFrame : Frame2d screenUnits screenCoordinates defines
         screenFrame =
-            BoundingBox2d.centerPoint screen
+            BoundingBox2d.centerPoint frame
                 |> Frame2d.atPoint
 
         ( transX, transY ) =
@@ -331,9 +331,15 @@ pointToScene (Camera2d { sceneFrame, zoomLevel }) screen point =
         (Quantity.at_ zoomLevel transY)
 
 
-{-| Given a camera and a rectangle representing a rectangle where a drawing will be
-rendered on screen, provides the correct SVG `viewBox` parameters that will yield
-the correctly scaled and translated scene space described by that camera.
+{-| Given a camera and a rectangular frame where a drawing will be rendered on
+screen, provides the SVG `viewBox` parameters that will yield a correctly scaled
+and translated scene space described by that camera.
+
+The screen coordinate defined frame will have the cameras origin point at its
+center, and the frame will be the same size as the whole SVG element. See
+[svgViewBoxWithFocus](#svgViewBoxWithFocus) for a version where the camera is
+centered in a different frame.
+
 -}
 svgViewBox :
     Camera2d sceneUnits screenUnits sceneCoordinates
@@ -354,7 +360,65 @@ svgViewBox ((Camera2d { zoomLevel }) as camera) screen =
         scaleFactor =
             zoomLevel |> Quantity.unwrap
     in
-    TypedSvg.Attributes.viewBox (round x |> toFloat)
+    TypedSvg.Attributes.viewBox
+        (round x |> toFloat)
+        (round y |> toFloat)
+        (round (w / scaleFactor) |> toFloat)
+        (round (h / scaleFactor) |> toFloat)
+
+
+{-| Given a camera and a rectangular frame where a drawing will be rendered on
+screen, provides the SVG `viewBox` parameters that will yield a correctly scaled
+and translated scene space described by that camera.
+
+In this case two screen coordinate defined frames are provided to set up the camera.
+The first defines the area where the camera is considered to be focussed and centered
+on, but this does not have to occupy the whole of the SVG element. The second defines
+the boundary of the actual SVG element. Typically the first frame is wholly inside
+the second one, but it does not have to be.
+
+This is useful if you want a camera that does not fill all of an SVG, you might have
+areas that show other things or some kind of overlay that you consider to be acting
+as a boundary to the camera frame.
+
+If you have an SVG that fills the whole `window`, and want the camera focussed on a
+`frame` inside that, this would give you the correct SVG viewBox parameters:
+
+    Camera2d.svgViewBoxWithFocus
+        camera
+        frame
+        window
+
+-}
+svgViewBoxWithFocus :
+    Camera2d sceneUnits screenUnits sceneCoordinates
+    -> BoundingBox2d screenUnits screenCoordinates
+    -> BoundingBox2d screenUnits screenCoordinates
+    -> TypedSvg.Core.Attribute a
+svgViewBoxWithFocus ((Camera2d { zoomLevel }) as camera) frame screen =
+    let
+        ( w, h ) =
+            BoundingBox2d.dimensions screen
+                |> Tuple.mapBoth Quantity.unwrap Quantity.unwrap
+
+        -- find the top left of the screen relative to the focus frame
+        translateToFocus =
+            Vector2d.from
+                (BoundingBox2d.centerPoint screen)
+                (BoundingBox2d.centerPoint frame)
+
+        { x, y } =
+            BoundingBox2d.extrema screen
+                |> (\e -> Point2d.xy e.minX e.minY)
+                --|> Point2d.translateBy translateToFocus
+                |> pointToScene camera frame
+                |> Point2d.unwrap
+
+        scaleFactor =
+            zoomLevel |> Quantity.unwrap
+    in
+    TypedSvg.Attributes.viewBox
+        (round x |> toFloat)
         (round y |> toFloat)
         (round (w / scaleFactor) |> toFloat)
         (round (h / scaleFactor) |> toFloat)
