@@ -615,11 +615,15 @@ gridPatternsInner start pow end accum =
             [ HA.id gridName
             , InPx.width tenpow
             , InPx.height tenpow
+            , InPx.x 0
+            , InPx.y 0
             , SvgAttr.patternUnits CoordinateSystemUserSpaceOnUse
             ]
             [ Svg.rect
                 [ InPx.width tenpow
                 , InPx.height tenpow
+                , InPx.x 0
+                , InPx.y 0
                 , Color.rgb255 176 176 176 |> Paint |> SvgAttr.stroke
                 , InPx.strokeWidth (tenpow / 1000)
                 , if isBottomGrid then
@@ -642,18 +646,33 @@ background : DrawingModel -> Svg msg
 background { frame } =
     let
         skirtScale =
-            100
+            5
 
         ( w, h ) =
             BoundingBox2d.dimensions frame
                 |> Tuple.mapBoth Pixels.toFloat Pixels.toFloat
 
+        alignToPattern x =
+            (x / 625 |> ceiling |> toFloat) * 625
+
+        x1 =
+            -(skirtScale * w |> alignToPattern)
+
+        y1 =
+            -(skirtScale * h |> alignToPattern)
+
+        x2 =
+            skirtScale * w |> alignToPattern
+
+        y2 =
+            skirtScale * h |> alignToPattern
+
         bgArea =
             Rectangle2d.with
-                { x1 = -(skirtScale * w) |> Quantity.float
-                , y1 = -(skirtScale * h) |> Quantity.float
-                , x2 = (2 * skirtScale) * w |> Quantity.float
-                , y2 = (2 * skirtScale) * h |> Quantity.float
+                { x1 = x1 |> Quantity.float
+                , y1 = y1 |> Quantity.float
+                , x2 = x2 |> Quantity.float
+                , y2 = y2 |> Quantity.float
                 }
     in
     Geometry.Svg.rectangle2d
