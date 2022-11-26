@@ -646,7 +646,7 @@ background : DrawingModel -> Svg msg
 background { frame } =
     let
         skirtScale =
-            5
+            20
 
         ( w, h ) =
             BoundingBox2d.dimensions frame
