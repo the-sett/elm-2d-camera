@@ -1,3 +1,4 @@
 [build]
-  publish = "./example/dist/"
-  command = "cd example; npm run build"
+  base = "example/"
+  publish = "dist/"
+  command = "npm run build"
