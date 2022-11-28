@@ -10,7 +10,7 @@ import Camera2d exposing (Camera2d, ZoomSpace)
 import Circle2d
 import Color
 import Css.Global
-import Geometry exposing (BScene, BScreen, Scene, Screen, VScreen)
+import Geometry exposing (BScene, BScreen, PScreen, Scene, Screen, VScreen)
 import Geometry.Svg
 import GestureEvent exposing (GestureAction(..), GestureEvent(..))
 import Html as H exposing (Html)
@@ -79,6 +79,8 @@ config =
     , containerElementId = "zoomable"
     , minimumNoteSize = Vector2d.unitless 60 60
     , editorId = "sticky-1"
+    , leftMenuWidth = 50
+    , rightOverlayWidth = 250
     }
 
 
@@ -98,7 +100,8 @@ type Model
 
 
 type alias DrawingModel =
-    { frame : BScreen
+    { window : BScreen
+    , frame : BScreen
     , zoom : Float
     , fontLevel : Int
     , gestures : Pointer.Model GestureEvent Msg Screen
@@ -107,6 +110,7 @@ type alias DrawingModel =
     , camera : Camera2d Unitless Pixels Scene
     , testBox : BScene
     , zoomAnimation : Timeline ZoomState
+    , mousePos : PScreen
     }
 
 
@@ -129,6 +133,7 @@ type Msg
     | OnGestureDragEnd (Pointer.DragArgs Screen) GestureEvent GestureEvent
     | OnGestureTap (Pointer.PointArgs Screen) GestureEvent
     | OnGestureDoubleTap (Pointer.PointArgs Screen) GestureEvent
+    | OnGestureMove PScreen GestureEvent
     | OnGestureZoom (Pointer.ScaleArgs Screen) GestureEvent
     | Tick Posix
 
@@ -216,6 +221,7 @@ update msg model =
                     , dragEnd = OnGestureDragEnd
                     , click = OnGestureTap
                     , doubleClick = OnGestureDoubleTap
+                    , move = OnGestureMove
                     }
 
                 docPointerHandler =
@@ -223,6 +229,7 @@ update msg model =
                         |> Pointer.onDrag 0 docPointerHandlers
                         |> Pointer.onClick 0 docPointerHandlers
                         |> Pointer.onDoubleClick 0 docPointerHandlers
+                        |> Pointer.onMove docPointerHandlers
 
                 divPointerHandlers =
                     { wheel = OnGestureZoom
@@ -233,10 +240,14 @@ update msg model =
                     Pointer.empty
                         |> Pointer.onWheel divPointerHandlers
                         |> Pointer.onPinch divPointerHandlers
+
+                frame =
+                    windowSizeToBBox windowSize
             in
             U2.pure
                 (Ready
-                    { frame = windowSizeToFrame windowSize
+                    { window = frame
+                    , frame = drawingFrameFromWindow frame
                     , zoom = config.defaultZoom
                     , fontLevel = config.defaultNoteFontLevel
                     , gestures =
@@ -262,6 +273,7 @@ update msg model =
                             , maxY = 25.0 |> Quantity.float
                             }
                     , zoomAnimation = Animator.init ZoomInactive
+                    , mousePos = Point2d.origin
                     }
                 )
 
@@ -274,11 +286,29 @@ update msg model =
             U2.pure model
 
 
-windowSizeToFrame : VScreen -> BScreen
-windowSizeToFrame size =
+windowSizeToBBox : VScreen -> BScreen
+windowSizeToBBox size =
     BoundingBox2d.from
-        (Point2d.pixels 0 0)
+        (Point2d.pixels config.leftMenuWidth 0)
         (Point2d.xy (Vector2d.xComponent size) (Vector2d.yComponent size))
+
+
+drawingFrameFromWindow : BScreen -> BScreen
+drawingFrameFromWindow window =
+    let
+        extrema =
+            BoundingBox2d.extrema window
+
+        -- Make space for the right hand side overlay.
+        adjusted =
+            { extrema
+                | maxX =
+                    Quantity.minus
+                        (Pixels.float config.rightOverlayWidth)
+                        extrema.maxX
+            }
+    in
+    BoundingBox2d.fromExtrema adjusted
 
 
 
@@ -289,7 +319,7 @@ updateReady : Msg -> DrawingModel -> ( DrawingModel, Cmd Msg )
 updateReady msg drawing =
     case ( drawing.gestureCondition, msg ) of
         ( _, WindowSize windowSize ) ->
-            U2.pure { drawing | frame = windowSizeToFrame windowSize }
+            U2.pure { drawing | window = windowSizeToBBox windowSize }
 
         ( _, OnGestureMsg gestureMsg ) ->
             U2.pure drawing
@@ -303,21 +333,24 @@ updateReady msg drawing =
             U2.pure drawing
                 |> U2.andThen (adjustZoom args)
 
-        ( NoGesture, OnGestureDrag args (Root _) _ ) ->
+        ( NoGesture, OnGestureDrag args _ _ ) ->
             U2.pure drawing
                 |> U2.andThen (moveCamera args drawing.camera)
 
-        ( MovingCamera cameraStart, OnGestureDrag args (Root _) _ ) ->
+        ( MovingCamera cameraStart, OnGestureDrag args _ _ ) ->
             U2.pure drawing
                 |> U2.andThen (moveCamera args cameraStart)
+
+        ( _, OnGestureDragEnd _ _ _ ) ->
+            U2.pure drawing
+                |> U2.andThen resetGestureCondition
 
         ( _, OnGestureDoubleTap _ (ItemWithId "testBox" ActionSelect _ _) ) ->
             U2.pure drawing
                 |> U2.andThen animateZoomToTarget
 
-        ( _, OnGestureDragEnd _ _ _ ) ->
-            U2.pure drawing
-                |> U2.andThen resetGestureCondition
+        ( _, OnGestureMove pos _ ) ->
+            U2.pure { drawing | mousePos = pos }
 
         ( _, Tick newTime ) ->
             Animator.update newTime animator drawing
@@ -373,16 +406,16 @@ adjustZoom wheelEvent drawing =
 
 
 resetGestureCondition : DrawingModel -> ( DrawingModel, Cmd Msg )
-resetGestureCondition model =
-    { model | gestureCondition = NoGesture }
+resetGestureCondition drawing =
+    { drawing | gestureCondition = NoGesture }
         |> U2.pure
 
 
 animateZoomToTarget : DrawingModel -> ( DrawingModel, Cmd Msg )
-animateZoomToTarget model =
+animateZoomToTarget drawing =
     let
         origin =
-            Camera2d.origin model.camera
+            Camera2d.origin drawing.camera
 
         destination =
             Point2d.origin
@@ -404,27 +437,27 @@ animateZoomToTarget model =
                 |> Quantity.multiplyBy 1.1
 
         smallestFrameDim =
-            BoundingBox2d.dimensions model.frame
+            BoundingBox2d.dimensions drawing.frame
                 |> Tuple2.uncurry Quantity.min
 
         zoom =
             Quantity.rate smallestFrameDim largestTargetDim
 
         targetCamera =
-            model.camera
+            drawing.camera
                 |> Camera2d.translateBy translation
                 |> Camera2d.setZoom zoom
 
         -- Derive the camera start and end positions in ZoomSpace.
         startZoomSpace =
-            Camera2d.toZoomSpace model.camera
+            Camera2d.toZoomSpace drawing.camera
                 |> ZoomStart
 
         targetZoomSpace =
             Camera2d.toZoomSpace targetCamera
                 |> ZoomTarget
     in
-    { model
+    { drawing
         | zoomAnimation =
             Animator.init startZoomSpace
                 |> Animator.go Animator.quickly targetZoomSpace
@@ -433,10 +466,10 @@ animateZoomToTarget model =
 
 
 animateCamera : DrawingModel -> ( DrawingModel, Cmd Msg )
-animateCamera model =
+animateCamera drawing =
     let
         zoomSpace =
-            Animator.xyz model.zoomAnimation
+            Animator.xyz drawing.zoomAnimation
                 (\state ->
                     case state of
                         ZoomInactive ->
@@ -457,16 +490,16 @@ animateCamera model =
             Quantity.at_ (Quantity.unsafe 1.0) (Camera2d.zoom camera)
                 |> Quantity.toFloat
     in
-    case Animator.arrived model.zoomAnimation of
+    case Animator.arrived drawing.zoomAnimation of
         ZoomStart _ ->
             U2.pure
-                { model
+                { drawing
                     | camera = camera
                     , zoom = zoom
                 }
 
         _ ->
-            U2.pure { model | zoomAnimation = Animator.init ZoomInactive }
+            U2.pure { drawing | zoomAnimation = Animator.init ZoomInactive }
 
 
 xyzToMovement : { x : Float, y : Float, z : Float } -> { x : Animator.Movement, y : Animator.Movement, z : Animator.Movement }
@@ -521,7 +554,7 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "SVG Drawing Example"
     , body =
-        [ Css.Global.global Style.global |> HS.toUnstyled
+        [ Style.global config |> Css.Global.global |> HS.toUnstyled
         , body model
         ]
     }
@@ -539,31 +572,46 @@ fullBody : Model -> Html Msg
 fullBody model =
     case model of
         Ready drawing ->
-            let
-                attrs =
-                    Pointer.on drawing.gesturesOnDiv (GestureEvent.gestureDecoder config.containerElementId)
-                        ++ [ HA.style "width" "100%"
-                           , HA.style "height" "100%"
-                           , HA.style "overflow" "hidden"
-                           ]
-            in
             H.div
-                attrs
+                [ HA.id "top-container"
+                ]
                 [ Params.view drawing
-                , Svg.svg
-                    [ SvgAttr.preserveAspectRatio (Align ScaleMid ScaleMid) Meet
-                    , Camera2d.svgViewBox drawing.camera drawing.frame
-                    , SvgCore.svgNamespace
-                    , SvgAttr.shapeRendering RenderGeometricPrecision
-                    ]
-                    [ gridPattern drawing
-                    , background drawing
-                    , testBox drawing
-                    ]
+                , leftMenu
+                , svgDrawing drawing
+                , rightOverlay
                 ]
 
         _ ->
             H.div [] []
+
+
+leftMenu : Html msg
+leftMenu =
+    H.div [ HA.id "left-menu" ]
+        []
+
+
+rightOverlay : Html msg
+rightOverlay =
+    H.div [ HA.id "right-overlay" ]
+        []
+
+
+svgDrawing : DrawingModel -> Svg Msg
+svgDrawing drawing =
+    Svg.svg
+        ([ SvgAttr.preserveAspectRatio (Align ScaleMid ScaleMid) Meet
+         , Camera2d.svgViewBoxWithFocus drawing.camera drawing.frame drawing.window
+         , SvgCore.svgNamespace
+         , SvgAttr.shapeRendering RenderGeometricPrecision
+         , HA.id "svg-drawing"
+         ]
+            ++ Pointer.on drawing.gesturesOnDiv (GestureEvent.gestureDecoder config.containerElementId)
+        )
+        [ gridPattern drawing
+        , background drawing
+        , testBox drawing
+        ]
 
 
 gridPattern : DrawingModel -> Svg msg
