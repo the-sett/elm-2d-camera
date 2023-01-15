@@ -7,7 +7,7 @@ module Camera2d exposing
     , translateBy, translateByScreenVector
     , pointToScene, pointToScreen
     , svgViewBox, svgViewBoxWithFocus
-    , toZoomSpace
+    , toZoomSpace, interpolateFrom
     )
 
 {-| A Camera2d maps a 2d scene to a screen.
@@ -60,7 +60,7 @@ addition of the zoom ratio.
 
 # Animation
 
-@docs toZoomSpace
+@docs interpolateFrom, toZoomSpace
 
 -}
 
@@ -149,6 +149,25 @@ toZoomSpace (Camera2d { sceneFrame, zoomLevel }) =
             Quantity.at_ (Quantity.unwrap zoomLevel |> Quantity.unsafe) (Quantity.unsafe 1.0)
     in
     Point3d.xyz x y z
+
+
+{-| Interpolate between one camera position and another in [ZoomSpace](#ZoomSpace).
+-}
+interpolateFrom :
+    Camera2d units screenUnits coordinates
+    -> Camera2d units screenUnits coordinates
+    -> Float
+    -> Camera2d units screenUnits coordinates
+interpolateFrom start end progress =
+    let
+        startZs =
+            toZoomSpace start
+
+        endZs =
+            toZoomSpace end
+    in
+    Point3d.interpolateFrom startZs endZs progress
+        |> fromZoomSpace
 
 
 {-| Gets the camera origin point in scene coordinates.
