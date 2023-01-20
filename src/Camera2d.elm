@@ -7,7 +7,7 @@ module Camera2d exposing
     , translateBy, translateByScreenVector
     , pointToScene, pointToScreen
     , svgViewBox, svgViewBoxWithFocus
-    , toZoomSpace, interpolateFrom
+    , interpolateFrom, toZoomSpace
     )
 
 {-| A Camera2d maps a 2d scene to a screen.

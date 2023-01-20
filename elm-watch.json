@@ -1,0 +1,10 @@
+{
+    "targets": {
+        "My target name": {
+            "inputs": [
+                "src/Camera2d.elm"
+            ],
+            "output": "/tmp/elm.js"
+        }
+    }
+}
