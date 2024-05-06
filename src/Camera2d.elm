@@ -371,15 +371,12 @@ vectorToScreen (Camera2d { sceneFrame, zoomLevel }) frame vector =
             BoundingBox2d.centerPoint frame
                 |> Frame2d.atPoint
 
-        point =
-            Point2d.translateBy vector Point2d.origin
-
-        ( transX, transY ) =
-            Point2d.coordinatesIn sceneFrame point
+        ( x, y ) =
+            Vector2d.components vector
     in
     Vector2d.xyIn screenFrame
-        (Quantity.at zoomLevel transX)
-        (Quantity.at zoomLevel transY)
+        (Quantity.at zoomLevel x)
+        (Quantity.at zoomLevel y)
 
 
 {-| Maps a vector in screen space to a vector in scene space.
@@ -393,22 +390,14 @@ vectorToScene :
     -> BoundingBox2d screenUnits screenCoordinates
     -> Vector2d screenUnits screenCoordinates
     -> Vector2d sceneUnits sceneCoordinates
-vectorToScene (Camera2d { sceneFrame, zoomLevel }) frame vector =
+vectorToScene (Camera2d { sceneFrame, zoomLevel }) _ vector =
     let
-        screenFrame : Frame2d screenUnits screenCoordinates defines
-        screenFrame =
-            BoundingBox2d.centerPoint frame
-                |> Frame2d.atPoint
-
-        point =
-            Point2d.translateBy vector Point2d.origin
-
-        ( transX, transY ) =
-            Point2d.coordinatesIn screenFrame point
+        ( x, y ) =
+            Vector2d.components vector
     in
     Vector2d.xyIn sceneFrame
-        (Quantity.at_ zoomLevel transX)
-        (Quantity.at_ zoomLevel transY)
+        (Quantity.at_ zoomLevel x)
+        (Quantity.at_ zoomLevel y)
 
 
 {-| Given a camera and a rectangular frame where a drawing will be rendered on
