@@ -6,6 +6,7 @@ module Camera2d exposing
     , setOrigin, setZoom, setZoomAtScreenPoint
     , translateBy, translateByScreenVector
     , pointToScene, pointToScreen
+    , vectorToScene, vectorToScreen
     , svgViewBox, svgViewBoxWithFocus
     , interpolateFrom, toZoomSpace
     )
@@ -51,6 +52,7 @@ addition of the zoom ratio.
 # Mappings between scene and screen space
 
 @docs pointToScene, pointToScreen
+@docs vectorToScene, vectorToScreen
 
 
 # SVG helpers.
@@ -346,6 +348,65 @@ pointToScene (Camera2d { sceneFrame, zoomLevel }) frame point =
             Point2d.coordinatesIn screenFrame point
     in
     Point2d.xyIn sceneFrame
+        (Quantity.at_ zoomLevel transX)
+        (Quantity.at_ zoomLevel transY)
+
+
+{-| Maps a vector in scene space to a vector in screen space.
+
+This can be useful when overlaying something in screen space onto a drawing in scene
+space, for example a menu or other user interface construction that is not part of
+the drawing itself.
+
+-}
+vectorToScreen :
+    Camera2d sceneUnits screenUnits sceneCoordinates
+    -> BoundingBox2d screenUnits screenCoordinates
+    -> Vector2d sceneUnits sceneCoordinates
+    -> Vector2d screenUnits screenCoordinates
+vectorToScreen (Camera2d { sceneFrame, zoomLevel }) frame vector =
+    let
+        screenFrame : Frame2d screenUnits screenCoordinates defines
+        screenFrame =
+            BoundingBox2d.centerPoint frame
+                |> Frame2d.atPoint
+
+        point =
+            Point2d.translateBy vector Point2d.origin
+
+        ( transX, transY ) =
+            Point2d.coordinatesIn sceneFrame point
+    in
+    Vector2d.xyIn screenFrame
+        (Quantity.at zoomLevel transX)
+        (Quantity.at zoomLevel transY)
+
+
+{-| Maps a vector in screen space to a vector in scene space.
+
+This can be useful when mapping pointer events onto a drawing, since the pointer
+events will be described by their screen coordinates.
+
+-}
+vectorToScene :
+    Camera2d sceneUnits screenUnits sceneCoordinates
+    -> BoundingBox2d screenUnits screenCoordinates
+    -> Vector2d screenUnits screenCoordinates
+    -> Vector2d sceneUnits sceneCoordinates
+vectorToScene (Camera2d { sceneFrame, zoomLevel }) frame vector =
+    let
+        screenFrame : Frame2d screenUnits screenCoordinates defines
+        screenFrame =
+            BoundingBox2d.centerPoint frame
+                |> Frame2d.atPoint
+
+        point =
+            Point2d.translateBy vector Point2d.origin
+
+        ( transX, transY ) =
+            Point2d.coordinatesIn screenFrame point
+    in
+    Vector2d.xyIn sceneFrame
         (Quantity.at_ zoomLevel transX)
         (Quantity.at_ zoomLevel transY)
 
