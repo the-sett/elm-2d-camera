@@ -1,6 +1,6 @@
 // Listens to pointer events on the document.
 
-class Pointer {
+export default class Pointer {
     constructor(app) {
         this.app = app;
 
@@ -35,5 +35,3 @@ class Pointer {
         this.app.ports.onPointerCancel.send(e);
     }
 }
-
-module.exports = Pointer;
